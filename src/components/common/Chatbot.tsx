@@ -9,6 +9,12 @@ interface Message {
   timestamp: Date;
 }
 
+interface ChatbotResponse {
+  response: string;
+  credits?: number;
+  error?: string;
+}
+
 const SUGGESTIONS = [
   '¿Qué cómics están por salir?',
   '¿Cuál es el mejor manga del año?',
@@ -21,6 +27,7 @@ const Chatbot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -72,11 +79,28 @@ const Chatbot: React.FC = () => {
         }
       );
 
+      const data: ChatbotResponse = await response.json();
+
       if (!response.ok) {
+        if (response.status === 429) {
+          const errorMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            text: data.error || 'No tienes créditos disponibles. Se resetean cada 24 horas.',
+            sender: 'bot',
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+          if (data.credits !== undefined) {
+            setCredits(data.credits);
+          }
+          return;
+        }
         throw new Error('Error al obtener respuesta');
       }
 
-      const data = await response.json();
+      if (data.credits !== undefined) {
+        setCredits(data.credits);
+      }
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -117,17 +141,24 @@ const Chatbot: React.FC = () => {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className="fixed bottom-24 right-6 w-96 h-[600px] bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 flex flex-col z-50"
           >
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-4 rounded-t-2xl flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-6 h-6 text-white" />
-                <h3 className="text-white font-semibold">Asistente Virtual</h3>
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-4 rounded-t-2xl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-6 h-6 text-white" />
+                  <h3 className="text-white font-semibold">Asistente Virtual</h3>
+                </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {credits !== null && (
+                <div className="text-white/90 text-sm">
+                  Créditos disponibles: {credits}/10
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
