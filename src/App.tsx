@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/layout/Navbar';
+import Chatbot from './components/common/Chatbot';
 import Home from './pages/Home';
 import CategoryPage from './pages/CategoryPage';
 import PostDetail from './pages/PostDetail';
@@ -35,6 +36,7 @@ function App() {
               },
             }}
           />
+          <Chatbot />
         </div>
       </Router>
     </AuthProvider>
