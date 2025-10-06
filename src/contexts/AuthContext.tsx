@@ -11,27 +11,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchUserProfile(session.user);
-      } else {
-        setLoading(false);
-      }
-    });
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_, session) => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (mounted) {
         if (session?.user) {
           await fetchUserProfile(session.user);
-        } else {
-          setUser(null);
         }
         setLoading(false);
       }
+    };
+
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_, session) => {
+        (async () => {
+          if (mounted) {
+            if (session?.user) {
+              await fetchUserProfile(session.user);
+            } else {
+              setUser(null);
+            }
+          }
+        })();
+      }
     );
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
@@ -40,12 +52,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('users')
         .select('id, username, email, created_at')
         .eq('id', authUser.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        // If user profile doesn't exist, it might be a new user
         console.error('Error fetching user profile:', error);
-        // Don't throw error, just set loading to false
         return;
       }
 
@@ -54,7 +64,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      // Don't show error toast for profile fetch issues
     }
   };
 
